@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-# EXECUTE THIS FILE LIKE THIS:
-# > sudo python photobooth.py
+#**
+# HD Photobooth with print capabilities
+# Code originaly from https://github.com/contractorwolf/RaspberryPiPhotobooth
+#**
 
 from time import sleep
 
@@ -11,20 +13,21 @@ import subprocess as sub
 import datetime
 import pygame
 import pygbutton
-import RPi.GPIO as GPIO
 import glob
 import sys
+import io
+import requests
 
-bounceMillis = 800 #waits 800 ms before noticing another button press
+from sonypy import Discoverer, Camera
 fps = 0; #frames per second
 photos_taken = 0
 index = 0
-width = 1280
-height = 980
+width = 1920
+height = 1080
 continue_loop = True
 
 image_name = ""
-delay_time = .005
+delay_time = .001
 flash_time = .1
 last_image_taken = ""
 waiting_on_download = False #if this is true, look for last_image_taken 
@@ -37,7 +40,25 @@ change_ticks = 0
 last_image_number = 0
 last_preview = {}
 
+taking_photos = False
+photo_count = 1
+photos = {"1","2","3","4"}
+photo_timer = 0
+camera_avail = False
 
+try:
+    discoverer = Discoverer()
+    cameras = discoverer.discover()
+    cam = cameras[0]
+    #cam.get_available_api_list()
+    cam.start_rec_mode()
+    #set_shoot_mode('still')
+    cam.start_liveview()
+    stream = cam.stream_liveview('http://192.168.122.1:8080/liveview/liveviewstream')
+    camera_avail = True
+except:
+    print "no cam man!"
+    
 #***************FUNCTIONS******************
 
 def APressed(channel):
@@ -50,7 +71,6 @@ def BPressed(channel):
     global change_ticks
     change_ticks = pygame.time.get_ticks() + 20000
     
-    FlashLEDs(2)
 
     LastPicture()
     
@@ -129,21 +149,11 @@ def LoadImageObjectToScreen(image):
     print "end LoadImageObjectToScreen"
     
 
-def FlashLEDs(iterations):
-    #flashes LED for iterations
-    index = 0
-
-    while(index<iterations):
-        print("flashing LEDs")
-        GPIO.output(23,True)
-        sleep(flash_time)
-        GPIO.output(23,False)
-        sleep(flash_time)
-        index = index + 1
 
 def DrawMetrics():
     #draws program metrics to the screen, to time how fast updating is going
-    
+    #print pygame.time.get_ticks()
+    #print index
     fps = float(index)/float(pygame.time.get_ticks()/1000)
 
     #text background layer, overwritten on every frame
@@ -164,42 +174,34 @@ def DrawPreview():
     # draws the preview image from the camera onto the screen
     global last_preview
     
-    p = sub.Popen(get_preview_command,stdout=sub.PIPE,stderr=sub.PIPE,shell=True)
-    
-    p.wait()#must wait until the image returns or the images never get fully loaded
-    
-    image = pygame.image.load("preview.jpg").convert_alpha()
+    try:
+        frame = stream.next()
+        img = io.BytesIO(frame)
+        image = pygame.image.load(img).convert_alpha()
 
-    #position lower right preview image
-    screen.blit(image,((width-320),(height - 240)))
-    
-    pygame.display.update()
-
-    last_preview = image#stores last to make transitions look less choppy 
+        #position lower right preview image
+        screen.blit(image,((width-640),(height - 424)))
+        pygame.display.update()
+        last_preview = image#stores last to make transitions look less choppy 
+        
+    except:
+        print "no new picture"
         
 def PrevPicture():
     #draws the prev picture in the list from the object list
     global current_image
     global in_process
-
     print "PrevPicture"
 
     if not in_process:
         in_process = True
-
-        FlashLEDs(1)
-
         current_image = current_image - 1
-        
         if current_image < 0:
             current_image = (len(object_list)-1)
 
         DrawCenterMessage("LOADING PREV IMAGE: " + str(current_image),550,70,((width/2)-220),((height)-100))
-
         LoadImageObjectToScreen(object_list[current_image])
-
-        RenderOverlay()
-        
+        #RenderOverlay()
         in_process = False
 
     print "end PrevPicture"
@@ -208,27 +210,20 @@ def NextPicture():
     #draws the prev picture in the list from the object list
     global current_image
     global in_process
-
     print "NextPicture"
 
     if not in_process:
         in_process = True
-
-        FlashLEDs(1)
-
         current_image = current_image + 1
-        
         if current_image > (len(object_list)-1):
             current_image = 0
-
-        DrawCenterMessage("LOADING NEXT IMAGE: " + str(current_image),550,70,((width/2)-220),((height)-100))
             
+        DrawCenterMessage("LOADING NEXT IMAGE: " + str(current_image),550,70,((width/2)-220),((height)-100))
         LoadImageObjectToScreen(object_list[current_image])
-
-        screen.blit(last_preview,((width-320),(height - 240)))
-
-        RenderOverlay()
-
+        if camera_avail:
+            screen.blit(last_preview,((width-320),(height - 240)))
+        
+        #RenderOverlay()
         in_process = False
 
     print "end NextPicture"
@@ -242,25 +237,13 @@ def LastPicture():
 
     if not in_process:
         in_process = True
-
-        FlashLEDs(1)
-
         DrawCenterMessage("LOADING LAST TAKEN: " +str(last_image_number),600,70,((width/2)-220),((height)-100))
-
         LoadImageObjectToScreen(object_list[last_image_number])
-
-        RenderOverlay()
-
+        #RenderOverlay()
         in_process = False
     
     print "end LastPicture"
-    
 
-def GetDateTimeString():
-    #format the datetime for the time-stamped filename
-    dt = str(datetime.datetime.now()).split(".")[0]
-    clean = dt.replace(" ","_").replace(":","_")
-    return clean
 
 def DrawCenterMessage(message,width,height,x,y):
     #displays notification messages onto the screen
@@ -273,18 +256,6 @@ def DrawCenterMessage(message,width,height,x,y):
     pygame.display.update()
     
 
-def FlashLEDs(max_iterations):
-    #flash red led (GPIO pin 23)
-    index = 0
-    
-    while(index<max_iterations):
-        print("flashing LEDs")
-        GPIO.output(23,True)
-        sleep(flash_time)
-        GPIO.output(23,False)
-        sleep(flash_time)
-        index = index + 1
-
 def LoadNewImage():
     # after new image has been downloaded from the camera
     # it must be loaded into the object list and displayed on the screen
@@ -294,8 +265,6 @@ def LoadNewImage():
     global current_image
 
     DrawCenterMessage("TRANFERRING PICTURE",550,70,((width/2)-220),((height/2)-2))
-
-    FlashLEDs(1)
 
     print "start LoadNewImage: " + str(pygame.time.get_ticks())
     capture = pygame.transform.scale(pygame.image.load(last_image_taken).convert_alpha(),(width,height))
@@ -318,8 +287,6 @@ def LoadNewImage():
     #os.system("sudo python upload.py " + last_image_taken)
     #-------------------------------------------------------------
     
-    FlashLEDs(1)
-
     waiting_on_download = False
         
 
@@ -331,79 +298,59 @@ def TakePicture():
     global last_image_taken
     global waiting_on_download
 
-    FlashLEDs(1)
     take_a_picture = False
     
     print "taking picture"
 
-    DrawCenterMessage("TAKING PICTURE",400,70,((width/2)-220),((height/2)-2))
-
-    last_image_taken = "images/capture" + GetDateTimeString() + ".jpg"
-    
-    take_pic_command = "gphoto2 --capture-image-and-download --filename " + last_image_taken + " --force-overwrite"
-
-    print "command given: " + str(pygame.time.get_ticks())
-
-    #executes command below
-    p = sub.Popen(take_pic_command,stdout=sub.PIPE,stderr=sub.PIPE,shell=True)
-
-    DrawCenterMessage("SMILE :)",400,70,((width/2)-220),((height/2)-2))
+    #DrawCenterMessage("SMILE :)",400,70,((width/2)-220),((height/2)-2))
 
     #starts looking for the saved downloading image name
     waiting_on_download = True
-
+    imageURL = cam.act_take_picture()[0]
+    print os.path.basename(imageURL)
+    
+    r = requests.get(imageURL, stream=True)
+    if r.status_code == 200:
+        with open('Pictures/'+os.path.basename(imageURL), 'wb') as f:
+            for chunk in r.iter_content(1024):
+                f.write(chunk)
+    
     photos_taken = photos_taken + 1
+    last_image_taken = 'Pictures/'+os.path.basename(imageURL)
     
-    change_ticks = pygame.time.get_ticks() + 30000 #sets a 30 second timeout before the slideshow continues
+    change_ticks = pygame.time.get_ticks() + 5000 #sets a 30 second timeout before the slideshow continues
     
-
 
 #***************END FUNCTIONS******************
 
 # drops other possible connections to the camera
 # on every restart just to be safe
 
-os.system("sudo pkill gvfs")
+#os.system("sudo pkill gvfs")
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 
-app_name = "Raspberry Pi Photobooth v3"
+app_name = "Photobooth"
 
 print app_name + " started"
 
 sleep(2)
 
-
-GPIO.setmode(GPIO.BCM)
-
-#INPUT FROM RECEIVER
-GPIO.setup(17,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(22,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(24,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(25,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-#LED
-GPIO.setup(23,GPIO.OUT, False)
-
-FlashLEDs(1)
-
-GPIO.add_event_detect(22,GPIO.RISING,callback=DPressed,bouncetime=bounceMillis)
-GPIO.add_event_detect(17,GPIO.RISING,callback=CPressed,bouncetime=bounceMillis)
-GPIO.add_event_detect(24,GPIO.RISING,callback=BPressed,bouncetime=bounceMillis)
-GPIO.add_event_detect(25,GPIO.RISING,callback=APressed,bouncetime=bounceMillis)
-
 white = pygame.Color(255,255,255)
 black = pygame.Color(0,0,0)
 
 pygame.init()
+infoOb = pygame.display.Info()
 pygame.display.set_caption(app_name)
 
-#screen = pygame.display.set_mode((width,height))#NOT FULLSCREEN
-screen = pygame.display.set_mode((width,height),pygame.FULLSCREEN)#FULLSCREEN
+screen = pygame.display.set_mode((infoOb.current_w,infoOb.current_h),pygame.FULLSCREEN)#FULLSCREEN
+height = pygame.display.get_surface().get_height()
+width = pygame.display.get_surface().get_width()
 
 #button
-take_pic_button = pygbutton.PygButton(((width-80),50,80,30), "take pic")
+take_pic_button = pygbutton.PygButton(((width/2),50,(width/2),30), "take pic")
 
 #button
-quit_button = pygbutton.PygButton(((width-160),50,80,30), "quit")
+quit_button = pygbutton.PygButton((0,50,(width/2),30), "quit")
 
 
 #bottom level, to cover previous frames
@@ -414,69 +361,79 @@ backgroundSurface.fill(black)
 backgroundCenterSurface = pygame.Surface((400,70))#size
 backgroundCenterSurface.fill(black)
 
-get_preview_command = "gphoto2 --capture-preview --filename preview.jpg --force-overwrite"
+get_preview_command = "http://192.168.122.1:8080/liveview/liveviewstream"
 
 DrawPreview()
 
-file_list = glob.glob("/home/pi/photobooth/images/*.jpg")
+file_list = glob.glob("pictures/*.jpg")
 
 print "files in folder: " + str(len(file_list))
 
-index = 0
+index = 1
 for file in file_list:
     print file
     DrawCenterMessage("LOADING: " + str(index + 1) + "/" +str(len(file_list)),500,70,((width/2)-220),((height)-100))
-
     #REMOVE THIS RESTRICTION AFTER TESTING
     if index < 20: #REMOVE LATER<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         LoadImageToObjectList(file)
-        NextPicture()
-    
+        NextPicture()    
     index = index+1
 
 print "START LOOP"
+sleep(2)
 
-try:
-    while(continue_loop):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                print "quiting..."
-                continue_loop = False
+while(continue_loop):
 
-            if 'click' in take_pic_button.handleEvent(event):
-                TakePicture()
-                
-            if 'click' in quit_button.handleEvent(event):
-                print "quiting..."
-                continue_loop = False
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            print "quiting..."
+            continue_loop = False
 
-        if waiting_on_download and os.path.isfile(last_image_taken):
-            print "found file: " + last_image_taken
+        if 'click' in take_pic_button.handleEvent(event) and camera_avail:
+            #TakePicture()
+            photo_timer = pygame.time.get_ticks() + 5000
+            taking_photos = True
+            
+        if 'click' in quit_button.handleEvent(event):
+            print "quiting..."
+            continue_loop = False
 
-            LoadNewImage()
+    if waiting_on_download and os.path.isfile(last_image_taken):
+        print "found file: " + last_image_taken
+        LoadNewImage()
 
-        if change_ticks  < pygame.time.get_ticks():
-            print "Change"
-            NextPicture()
+    if change_ticks  < pygame.time.get_ticks():
+        print "Change"
+        NextPicture()
+        change_ticks = pygame.time.get_ticks() + 5000 #10 seconds and then flip to the next image
 
-            change_ticks = pygame.time.get_ticks() + 10000 #10 seconds and then flip to the next image
+    if taking_photos:
+        time = abs(((photo_timer-pygame.time.get_ticks())+1000)/1000)
+        if time > 0:
+            DrawCenterMessage(str(photo_count) + " of 4" + "   Smile!   " + str(time) + " ",600,70,((width/2)-220),((height)-100))
+        else:
+            DrawCenterMessage(str(photo_count) + " of 4" + "   Smile!   ",600,70,((width/2)-220),((height)-100))
 
-        #preview
+        if photo_timer < pygame.time.get_ticks():
+            print "taking photo %s" % photo_count
+            photo_timer = pygame.time.get_ticks() + 5000
+            TakePicture()
+            photo_count += 1
+            
+        if photo_count > 4:
+            photo_count = 1
+            taking_photos = False
+            # TODO asemble photos and show and output to printer
+
+    #preview
+    if camera_avail:
         DrawPreview()
-        DrawMetrics()
-
-        index = index +1
-
-        sleep(delay_time)
         
-except:
-    GPIO.cleanup()
-    print "EXCEPTION"
+    #DrawMetrics()
+    RenderOverlay()
+    index = index +1
+    sleep(delay_time)
 
 print "process complete"
 pygame.quit()
-GPIO.cleanup()
-
-
-
-
+#GPIO.cleanup()
