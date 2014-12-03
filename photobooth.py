@@ -5,6 +5,7 @@
 # Code originaly from https://github.com/contractorwolf/RaspberryPiPhotobooth
 #**
 
+
 from time import sleep
 
 import os
@@ -15,8 +16,12 @@ import pygame
 import pygbutton
 import glob
 import sys
+import urllib2
 import io
+import binascii
 import requests
+import threading
+import PIL
 
 from sonypy import Discoverer, Camera
 fps = 0; #frames per second
@@ -42,9 +47,10 @@ last_preview = {}
 
 taking_photos = False
 photo_count = 1
-photos = {"1","2","3","4"}
+photos = []
 photo_timer = 0
 camera_avail = False
+asemblingPhotos = False
 
 try:
     discoverer = Discoverer()
@@ -296,7 +302,6 @@ def TakePicture():
     global take_a_picture
     global photos_taken
     global last_image_taken
-    global waiting_on_download
 
     take_a_picture = False
     
@@ -305,7 +310,6 @@ def TakePicture():
     #DrawCenterMessage("SMILE :)",400,70,((width/2)-220),((height/2)-2))
 
     #starts looking for the saved downloading image name
-    waiting_on_download = True
     imageURL = cam.act_take_picture()[0]
     print os.path.basename(imageURL)
     
@@ -318,9 +322,52 @@ def TakePicture():
     photos_taken = photos_taken + 1
     last_image_taken = 'Pictures/'+os.path.basename(imageURL)
     
-    change_ticks = pygame.time.get_ticks() + 5000 #sets a 30 second timeout before the slideshow continues
-    
+    change_ticks = pygame.time.get_ticks() + 7000 #sets a 30 second timeout before the slideshow continues
 
+def GetDateTimeString():		
+    #format the datetime for the time-stamped filename		
+    dt = str(datetime.datetime.now()).split(".")[0]		
+    clean = dt.replace(" ","_").replace(":","_")		
+    return clean
+    
+def print_images():
+
+    global asemblingPhotos, photos
+    
+    print "Printing stuff"
+    print photos
+    from PIL import Image
+    #create a Python image library object from the image captured
+    photo1 = Image.open(photos[0])
+    photo2 = Image.open(photos[1])
+    photo3 = Image.open(photos[2])
+    photo4 = Image.open(photos[3])
+    #"Pictures/Stiched/"+GetDateTimeString()+".jpg")
+    #Load your default template mine is a 1200 x 1800 pixel image otherwise you will have to change sizes below.
+    bgimage = Image.open("boothImages.jpg")
+    print bgimage.size
+    # Thumbnail the images to make small images to paste onto the template
+    photo1.thumbnail((540,440))
+    photo2.thumbnail((540,440))
+    photo3.thumbnail((540,440))
+    photo4.thumbnail((540,440))
+    print photo1.size # 540x360
+    # Paste the images in order, 2 copies of the same image in my case, 2 columns (2 strips of images per 6x4)
+    bgimage.paste(photo1,(30,30))
+    bgimage.paste(photo2,(30,420))
+    bgimage.paste(photo3,(30,1020))
+    bgimage.paste(photo4,(30,1410))
+    bgimage.paste(photo1,(630,30))
+    bgimage.paste(photo2,(630,420))
+    bgimage.paste(photo3,(630,1020))
+    bgimage.paste(photo4,(630,1410))
+    #Save the final image
+    bgimage.save("Pictures/Stiched/"+GetDateTimeString()+".jpg")
+    sleep(5)
+    asemblingPhotos = False
+    photos = []
+    print "printing done!"
+    
 #***************END FUNCTIONS******************
 
 # drops other possible connections to the camera
@@ -374,10 +421,10 @@ for file in file_list:
     print file
     DrawCenterMessage("LOADING: " + str(index + 1) + "/" +str(len(file_list)),500,70,((width/2)-220),((height)-100))
     #REMOVE THIS RESTRICTION AFTER TESTING
-    if index < 20: #REMOVE LATER<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        LoadImageToObjectList(file)
-        NextPicture()    
-    index = index+1
+    #if index < 20: #REMOVE LATER<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    LoadImageToObjectList(file)
+    NextPicture()    
+    #index = index+1
 
 print "START LOOP"
 sleep(2)
@@ -397,6 +444,16 @@ while(continue_loop):
         if 'click' in quit_button.handleEvent(event):
             print "quiting..."
             continue_loop = False
+            
+        if event.type == pygame.KEYDOWN:
+            keys = pygame.key.get_pressed()
+
+            if ( keys[K_RCTRL] or keys[K_LCTRL] ) and keys[K_1]:
+                # take a filmstip pic
+
+            if ( keys[K_RCTRL] or keys[K_LCTRL] ) and keys[K_1]:
+                # take a postcard pic
+
 
     if waiting_on_download and os.path.isfile(last_image_taken):
         print "found file: " + last_image_taken
@@ -416,20 +473,29 @@ while(continue_loop):
 
         if photo_timer < pygame.time.get_ticks():
             print "taking photo %s" % photo_count
-            photo_timer = pygame.time.get_ticks() + 5000
+            photo_timer = pygame.time.get_ticks() + 7000
+            waiting_on_download = True
             TakePicture()
+            photos.append(last_image_taken)
             photo_count += 1
             
         if photo_count > 4:
             photo_count = 1
             taking_photos = False
+            asemblingPhotos = True
+            d = threading.Thread(name='printThread', target=print_images)
+            d.start()
             # TODO asemble photos and show and output to printer
+
+    if asemblingPhotos:
+        DrawCenterMessage(" Printing! ",600,70,((width/2)-220),((height)-100))
+        
 
     #preview
     if camera_avail:
         DrawPreview()
         
-    #DrawMetrics()
+    DrawMetrics()
     RenderOverlay()
     index = index +1
     sleep(delay_time)
