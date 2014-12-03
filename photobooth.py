@@ -447,13 +447,16 @@ while(continue_loop):
             
         if event.type == pygame.KEYDOWN:
             keys = pygame.key.get_pressed()
-
-            if ( keys[K_RCTRL] or keys[K_LCTRL] ) and keys[K_1]:
+            #print keys
+            if (keys[pygame.K_RCTRL] or keys[pygame.K_LCTRL]) and keys[pygame.K_1]:
+                print "photo1"
+                photo_timer = pygame.time.get_ticks() + 5000
+                taking_photos = True
                 # take a filmstip pic
-
-            if ( keys[K_RCTRL] or keys[K_LCTRL] ) and keys[K_1]:
+                
+            if (keys[pygame.K_RCTRL] or keys[pygame.K_LCTRL]) and keys[pygame.K_2]:
                 # take a postcard pic
-
+                print "photo2"
 
     if waiting_on_download and os.path.isfile(last_image_taken):
         print "found file: " + last_image_taken
@@ -496,7 +499,7 @@ while(continue_loop):
         DrawPreview()
         
     DrawMetrics()
-    RenderOverlay()
+    #RenderOverlay()
     index = index +1
     sleep(delay_time)
 
