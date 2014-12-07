@@ -52,6 +52,7 @@ photo_timer = 0
 camera_avail = False
 asemblingPhotos = False
 film_strip = True
+PreviewImage = null
 
 try:
     discoverer = Discoverer()
@@ -67,48 +68,9 @@ except:
     
 #***************FUNCTIONS******************
 
-def APressed(channel):
-    print("A button pressed: " + str(index))
-    TakePicture()
-    
-def BPressed(channel):
-    print("B button pressed: " + str(index))    
-    
-    global change_ticks
-    change_ticks = pygame.time.get_ticks() + 20000
-    
-
-    LastPicture()
-    
-def CPressed(channel):
-    print("C button pressed: " + str(index))   
-    
-    global change_ticks
-    change_ticks = pygame.time.get_ticks() + 20000
-
-    PrevPicture()
-
-def DPressed(channel):
-    print("D button pressed: " + str(index))    
-    
-    global change_ticks
-    change_ticks = pygame.time.get_ticks() + 20000
-    
-    NextPicture()
-
-
 def RenderOverlay():
-    #drow title and buttons
+    #TODO add function image
     
-    #app name
-    screen.blit(pygame.font.SysFont("freeserif",30,bold=0).render(app_name, 1, white),((width-350),10))
-
-    #button
-    take_pic_button.draw(screen)
-
-    #button
-    quit_button.draw(screen)
-
     pygame.display.update()
 
 def LoadImageToObjectList(image_name):
@@ -118,29 +80,21 @@ def LoadImageToObjectList(image_name):
     global image_count
     global last_image_number
     
-    print "LoadImageToObjectList: " + image_name
     print "before load: " + str(pygame.time.get_ticks())
     load = pygame.image.load(image_name).convert_alpha()
     print "loaded: " + str(pygame.time.get_ticks())
     scale = pygame.transform.scale(load,(width,height))
     print "scaled: " + str(pygame.time.get_ticks())
-    print "before append"
     object_list.append(scale)
-
 
     last_image_number = image_count
     
     image_count = image_count + 1
 
-    
-    print "after append" + str(pygame.time.get_ticks())
     print "added to object_list: " + str(len(object_list))
     print "end of LoadImageToObjectList"
     
     pygame.display.update()
-
-    print "sent to google drive: " + image_name
-
     
 def LoadImageObjectToScreen(image):
     #load the image object from the list to the screen
@@ -261,7 +215,6 @@ def DrawCenterMessage(message,width,height,x,y):
     screen.blit(backgroundCenterSurface,(x,y))#position
     screen.blit(pygame.font.SysFont("freeserif",40,bold=1).render(message, 1, white),(x+10,y+10))
     pygame.display.update()
-    
 
 def LoadNewImage():
     # after new image has been downloaded from the camera
@@ -270,17 +223,12 @@ def LoadNewImage():
     global image_count
     global last_image_number
     global current_image
-
-    DrawCenterMessage("TRANFERRING PICTURE",550,70,((width/2)-220),((height/2)-2))
-
+    
     print "start LoadNewImage: " + str(pygame.time.get_ticks())
     capture = pygame.transform.scale(pygame.image.load(last_image_taken).convert_alpha(),(width,height))
-    print "capture transformed: " + str(pygame.time.get_ticks())
-
-    DrawCenterMessage("LOADING IMAGE",550,70,((width/2)-220),((height/2)-2))
+    print "capture transformed: " + str(pygame.time.get_ticks()) 
     
     screen.blit(capture,(0,0))
-    object_list.append(capture)
 
     last_image_number = image_count
     current_image = last_image_number
@@ -297,7 +245,6 @@ def TakePicture():
     global take_a_picture
     global photos_taken
     global last_image_taken
-    
 
     take_a_picture = False
     
@@ -388,7 +335,7 @@ def print_images_postcard():
     photo3.thumbnail((900,550))
     photo4.thumbnail((900,550))
     print photo1.size # 823x550
-    # Paste the images in order, 2 copies of the same image in my case, 2 columns (2 strips of images per 6x4)
+    # Paste the images in order, 2x2 grid landscape
     bgimage.paste(photo1,(51,33))
     bgimage.paste(photo2,(925,33))
     bgimage.paste(photo3,(51,616))
@@ -467,7 +414,7 @@ def send_to_printer_windows():
     #  the page without distorting.
     #
     bmp = Image.open (print_file_name)
-    if bmp.size[1] > bmp.size[0]:
+    if bmp.size[1] > bmp.size[0]: # appears to be a bit printer specificthis works with the selphi 900 on win 8.1
       bmp = bmp.rotate (90)
 
     ratios = [1.0 * printable_area[0] / bmp.size[0], 1.0 * printable_area[1] / bmp.size[1]]
