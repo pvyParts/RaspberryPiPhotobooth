@@ -41,9 +41,9 @@ current_image = 0
 in_process = False
 image_count = 0;
 object_list = [] #list of preloaded images
-change_ticks = 0
-last_image_number = 0
-last_preview = {}
+change_ticks = 0 # tick to flip images
+last_image_number = 0 
+last_preview = {} 
 
 taking_photos = False
 photo_count = 1
@@ -51,6 +51,7 @@ photos = []
 photo_timer = 0
 camera_avail = False
 asemblingPhotos = False
+film_strip = True
 
 try:
     discoverer = Discoverer()
@@ -59,11 +60,10 @@ try:
     #cam.get_available_api_list()
     cam.start_rec_mode()
     #set_shoot_mode('still')
-    cam.start_liveview()
-    stream = cam.stream_liveview('http://192.168.122.1:8080/liveview/liveviewstream')
+    stream = cam.stream_liveview(cam.start_liveview())
     camera_avail = True
 except:
-    print "no cam man!"
+    print "Unable to Connect to Camera!"
     
 #***************FUNCTIONS******************
 
@@ -191,7 +191,8 @@ def DrawPreview():
         last_preview = image#stores last to make transitions look less choppy 
         
     except:
-        print "no new picture"
+        print "Camera Error: unable to get new liveview images"
+        
         
 def PrevPicture():
     #draws the prev picture in the list from the object list
@@ -286,12 +287,6 @@ def LoadNewImage():
     image_count = image_count + 1
 
     print "capture added to screen: " + str(pygame.time.get_ticks())
-
-    #-------------------------------------------------------------
-    # ONLY UNCOMMENT THE NEXT LINE OF CODE IF YOU HAVE CONFIGURED 
-    # upload.py TO WORK WITH YOUR GOOGLE DRIVE ACCOUNT
-    #os.system("sudo python upload.py " + last_image_taken)
-    #-------------------------------------------------------------
     
     waiting_on_download = False
         
@@ -302,6 +297,7 @@ def TakePicture():
     global take_a_picture
     global photos_taken
     global last_image_taken
+    
 
     take_a_picture = False
     
@@ -330,11 +326,11 @@ def GetDateTimeString():
     clean = dt.replace(" ","_").replace(":","_")		
     return clean
     
-def print_images():
+def print_images_filmstrip():
 
-    global asemblingPhotos, photos
+    global asemblingPhotos, photos, print_file_name
     
-    print "Printing stuff"
+    print "Printing stuff filmstrip"
     print photos
     from PIL import Image
     #create a Python image library object from the image captured
@@ -362,16 +358,141 @@ def print_images():
     bgimage.paste(photo3,(630,1020))
     bgimage.paste(photo4,(630,1410))
     #Save the final image
-    bgimage.save("Pictures/Stiched/"+GetDateTimeString()+".jpg")
-    sleep(5)
+    print_file_name = "Pictures/Stiched/"+GetDateTimeString()+".jpg"
+    bgimage.save(print_file_name)
+    
+    #TODO check OS and so other printing ways
+    send_to_printer_windows()
+    
     asemblingPhotos = False
     photos = []
     print "printing done!"
     
-#***************END FUNCTIONS******************
+def print_images_postcard():
 
-# drops other possible connections to the camera
-# on every restart just to be safe
+    global asemblingPhotos, photos, print_file_name
+    
+    print "Printing stuff postcard"
+    print photos
+    from PIL import Image
+    #create a Python image library object from the image captured
+    photo1 = Image.open(photos[0])
+    photo2 = Image.open(photos[1])
+    photo3 = Image.open(photos[2])
+    photo4 = Image.open(photos[3])
+    bgimage = Image.open("boothImagespc.jpg")
+    print bgimage.size
+    # Thumbnail the images to make small images to paste onto the template
+    photo1.thumbnail((900,550))
+    photo2.thumbnail((900,550))
+    photo3.thumbnail((900,550))
+    photo4.thumbnail((900,550))
+    print photo1.size # 823x550
+    # Paste the images in order, 2 copies of the same image in my case, 2 columns (2 strips of images per 6x4)
+    bgimage.paste(photo1,(51,33))
+    bgimage.paste(photo2,(925,33))
+    bgimage.paste(photo3,(51,616))
+    bgimage.paste(photo4,(925,616))
+    #Save the final image
+    print_file_name = "Pictures/Stiched/"+GetDateTimeString()+".jpg"
+    bgimage.save(print_file_name)
+    
+    #TODO check OS and so other printing ways
+    send_to_printer_windows()
+    
+    asemblingPhotos = False
+    photos = []
+    print "printing done!"
+    
+    
+#
+#
+#   all this is courtesy of Tim Goldens's Python Stuffs
+#   http://timgolden.me.uk/python/win32_how_do_i/print.html
+#
+#
+def send_to_printer_windows():
+    import win32print
+    import win32ui
+    from PIL import Image, ImageWin
+    
+    global print_file_name
+    #
+    # Constants for GetDeviceCaps
+    #
+    #
+    # HORZRES / VERTRES = printable area
+    #
+    HORZRES = 8
+    VERTRES = 10
+    #
+    # LOGPIXELS = dots per inch
+    #
+    LOGPIXELSX = 88
+    LOGPIXELSY = 90
+    #
+    # PHYSICALWIDTH/HEIGHT = total area
+    #
+    PHYSICALWIDTH = 110
+    PHYSICALHEIGHT = 111
+    #
+    # PHYSICALOFFSETX/Y = left / top margin
+    #
+    PHYSICALOFFSETX = 112
+    PHYSICALOFFSETY = 113
+
+    printer_name = win32print.GetDefaultPrinter ()
+    print "sending to :"+printer_name
+
+    #
+    # You can only write a Device-independent bitmap
+    #  directly to a Windows device context; therefore
+    #  we need (for ease) to use the Python Imaging
+    #  Library to manipulate the image.
+    #
+    # Create a device context from a named printer
+    #  and assess the printable size of the paper.
+    #
+
+    hDC = win32ui.CreateDC ()
+    hDC.CreatePrinterDC (printer_name)
+    printable_area = hDC.GetDeviceCaps (HORZRES), hDC.GetDeviceCaps (VERTRES)
+    printer_size = hDC.GetDeviceCaps (PHYSICALWIDTH), hDC.GetDeviceCaps (PHYSICALHEIGHT)
+    printer_margins = hDC.GetDeviceCaps (PHYSICALOFFSETX), hDC.GetDeviceCaps (PHYSICALOFFSETY)
+
+    #
+    # Open the image, rotate it if it's wider than
+    #  it is high, and work out how much to multiply
+    #  each pixel by to get it as big as possible on
+    #  the page without distorting.
+    #
+    bmp = Image.open (print_file_name)
+    if bmp.size[1] > bmp.size[0]:
+      bmp = bmp.rotate (90)
+
+    ratios = [1.0 * printable_area[0] / bmp.size[0], 1.0 * printable_area[1] / bmp.size[1]]
+    scale = min (ratios)
+
+    #
+    # Start the print job, and draw the bitmap to
+    #  the printer device at the scaled size.
+    #
+    hDC.StartDoc (print_file_name)
+    hDC.StartPage ()
+
+    dib = ImageWin.Dib (bmp)
+    scaled_width, scaled_height = [int (scale * i) for i in bmp.size]
+    x1 = int ((printer_size[0] - scaled_width) / 2)
+    y1 = int ((printer_size[1] - scaled_height) / 2)
+    x2 = x1 + scaled_width
+    y2 = y1 + scaled_height
+    dib.draw (hDC.GetHandleOutput (), (x1, y1, x2, y2))
+
+    hDC.EndPage ()
+    hDC.EndDoc ()
+    hDC.DeleteDC ()
+
+#***************END FUNCTIONS******************
 
 #os.system("sudo pkill gvfs")
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
@@ -452,20 +573,24 @@ while(continue_loop):
                 print "photo1"
                 photo_timer = pygame.time.get_ticks() + 5000
                 taking_photos = True
+                film_strip = True
                 # take a filmstip pic
                 
             if (keys[pygame.K_RCTRL] or keys[pygame.K_LCTRL]) and keys[pygame.K_2]:
                 # take a postcard pic
                 print "photo2"
+                photo_timer = pygame.time.get_ticks() + 5000
+                taking_photos = True
+                film_strip = False
 
     if waiting_on_download and os.path.isfile(last_image_taken):
         print "found file: " + last_image_taken
         LoadNewImage()
 
-    if change_ticks  < pygame.time.get_ticks():
+    if (change_ticks  < pygame.time.get_ticks()) and taking_photos == False:
         print "Change"
         NextPicture()
-        change_ticks = pygame.time.get_ticks() + 5000 #10 seconds and then flip to the next image
+        change_ticks = pygame.time.get_ticks() + 10000 #10 seconds and then flip to the next image
 
     if taking_photos:
         time = abs(((photo_timer-pygame.time.get_ticks())+1000)/1000)
@@ -486,10 +611,13 @@ while(continue_loop):
             photo_count = 1
             taking_photos = False
             asemblingPhotos = True
-            d = threading.Thread(name='printThread', target=print_images)
-            d.start()
-            # TODO asemble photos and show and output to printer
-
+            if film_strip:
+                d = threading.Thread(name='printThread', target=print_images_filmstrip)
+                d.start()
+            else:
+                d = threading.Thread(name='printThread', target=print_images_postcard)
+                d.start()
+            
     if asemblingPhotos:
         DrawCenterMessage(" Printing! ",600,70,((width/2)-220),((height)-100))
         
