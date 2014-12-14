@@ -259,7 +259,7 @@ def TakePicture():
     
     photos.append(last_image_taken)
     photo_count += 1
-    photo_timer = pygame.time.get_ticks() + 5000
+    photo_timer = pygame.time.get_ticks() + 3000
 
     change_ticks = pygame.time.get_ticks() + 7000 #sets a 30 second timeout before the slideshow continues
     waitng_on_camera = False
@@ -293,14 +293,14 @@ def print_images_filmstrip():
     photo4.thumbnail((540,440))
     print photo1.size # 540x360
     # Paste the images in order, 2 copies of the same image in my case, 2 columns (2 strips of images per 6x4)
-    bgimage.paste(photo1,(30,30))
+    bgimage.paste(photo1,(30,50))
     bgimage.paste(photo2,(30,420))
     bgimage.paste(photo3,(30,1020))
-    bgimage.paste(photo4,(30,1410))
-    bgimage.paste(photo1,(630,30))
+    bgimage.paste(photo4,(30,1390))
+    bgimage.paste(photo1,(630,50))
     bgimage.paste(photo2,(630,420))
     bgimage.paste(photo3,(630,1020))
-    bgimage.paste(photo4,(630,1410))
+    bgimage.paste(photo4,(630,1390))
     #Save the final image
     print_file_name = "Pictures/Stiched/"+GetDateTimeString()+".jpg"
     bgimage.save(print_file_name)
@@ -543,11 +543,6 @@ while(continue_loop):
         if ((photo_timer-pygame.time.get_ticks()+1000)/1000) > 0 and photo_count < 5:
             draw_count_down(str(time))
 
-        #if time > 0:
-            #DrawCenterMessage(str(photo_count) + " of 4" + "   Smile!   " + str(time) + " ",600,70,((width/2)-220),((height)-100))
-        #else:
-            #DrawCenterMessage(str(photo_count) + " of 4" + "   Smile!   ",600,70,((width/2)-220),((height)-100))
-
         if photo_timer < pygame.time.get_ticks() and waitng_on_camera == False and photo_count < 5:
             waitng_on_camera = True
             print "taking photo %s" % photo_count
@@ -568,8 +563,8 @@ while(continue_loop):
                 d.daemon = True
                 d.start()
             
-    #if asemblingPhotos:
-    #    DrawCenterMessage(" Printing! ",600,70,((width/2)-220),((height)-100))
+    if asemblingPhotos:
+        DrawCenterMessage(" Printing! ",600,70,((width/2)-220),((height)-100))
         
 
     #preview
