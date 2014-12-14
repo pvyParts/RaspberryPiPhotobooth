@@ -313,42 +313,6 @@ def print_images_filmstrip():
     photos = []
     print "printing done!"
     
-def print_images_postcard():
-
-    global asemblingPhotos, photos, print_file_name
-    
-    print "Printing stuff postcard"
-    print photos
-    from PIL import Image
-    #create a Python image library object from the image captured
-    photo1 = Image.open(photos[0])
-    photo2 = Image.open(photos[1])
-    photo3 = Image.open(photos[2])
-    photo4 = Image.open(photos[3])
-    bgimage = Image.open("boothImagespc.jpg")
-    print bgimage.size
-    # Thumbnail the images to make small images to paste onto the template
-    photo1.thumbnail((900,550))
-    photo2.thumbnail((900,550))
-    photo3.thumbnail((900,550))
-    photo4.thumbnail((900,550))
-    print photo1.size # 823x550
-    # Paste the images in order, 2x2 grid landscape
-    bgimage.paste(photo1,(51,33))
-    bgimage.paste(photo2,(925,33))
-    bgimage.paste(photo3,(51,616))
-    bgimage.paste(photo4,(925,616))
-    #Save the final image
-    print_file_name = "Pictures/Stiched/"+GetDateTimeString()+".jpg"
-    bgimage.save(print_file_name)
-    
-    #TODO check OS and so other printing ways
-    send_to_printer_windows()
-    
-    asemblingPhotos = False
-    photos = []
-    print "printing done!"
-
 #   all this is courtesy of Tim Goldens's Python Stuffs
 #   http://timgolden.me.uk/python/win32_how_do_i/print.html
 def send_to_printer_windows():
@@ -550,10 +514,8 @@ while(continue_loop):
 
             #Take a Postcard type photo and print it
             if (keys[pygame.K_RCTRL] or keys[pygame.K_LCTRL]) and keys[pygame.K_2]:
-                print "Postcard GoGoGo"
-                photo_timer = pygame.time.get_ticks() + 5000
-                taking_photos = True
-                film_strip = False
+                print "print last photos again"
+                send_to_printer_windows()
 
     if waiting_on_download and os.path.isfile(last_image_taken):
         print "found file: " + last_image_taken
