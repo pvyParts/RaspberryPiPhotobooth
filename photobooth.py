@@ -215,13 +215,14 @@ def LoadNewImage():
     print "capture transformed: " + str(pygame.time.get_ticks()) 
     
     screen.blit(capture,(0,0))
+    object_list.append(capture)
 
     last_image_number = image_count
     current_image = last_image_number
     image_count = image_count + 1
 
     print "capture added to screen: " + str(pygame.time.get_ticks())
-    
+        
     last_image_taken = ""
     waiting_on_download = False
         
@@ -433,7 +434,6 @@ def send_to_printer_windows():
 
 #red circle with a counter
 def draw_count_down(time):
-
     pygame.gfxdraw.filled_circle(screen, width/2, height-80, 60, pygame.Color(255,0,0)) # standard draw looks crapola
     pygame.gfxdraw.filled_circle(screen, width/2, height-80, 50, black)
     pygame.gfxdraw.aacircle(screen, width/2, height-80, 50, black) 
@@ -441,6 +441,28 @@ def draw_count_down(time):
     
     font = pygame.font.SysFont("freeserif",40,bold=1)
     screen.blit(font.render(time, 1, white),((width/2)-(font.size(time)[0]/2), height-80-(font.size(time)[1]/2))) 
+    
+    pygame.display.update()
+    
+#red circle with a print icon
+def draw_printing_icon():
+    pygame.gfxdraw.filled_circle(screen, width/2, height-80, 60, pygame.Color(255,0,0)) # standard draw looks crapola
+    pygame.gfxdraw.filled_circle(screen, width/2, height-80, 50, black)
+    pygame.gfxdraw.aacircle(screen, width/2, height-80, 50, black) 
+    pygame.gfxdraw.aacircle(screen, width/2, height-80, 60, pygame.Color(255,0,0)) 
+    
+    screen.blit(printIcon,((width/2)-30 ,(height-80)-30))   
+    
+    pygame.display.update()
+
+#red circle with a camera icon
+def draw_camera_icon():
+    pygame.gfxdraw.filled_circle(screen, width/2, height-80, 60, pygame.Color(255,0,0)) # standard draw looks crapola
+    pygame.gfxdraw.filled_circle(screen, width/2, height-80, 50, black)
+    pygame.gfxdraw.aacircle(screen, width/2, height-80, 50, black) 
+    pygame.gfxdraw.aacircle(screen, width/2, height-80, 60, pygame.Color(255,0,0)) 
+    
+    screen.blit(cameraIcon,((width/2)-30 ,(height-80)-30))   
     
     pygame.display.update()
 
@@ -469,6 +491,12 @@ width = pygame.display.get_surface().get_width()
 #bottom level, to cover previous frames
 backgroundSurface = pygame.Surface(((width-650),28))
 backgroundSurface.fill(black)
+
+#Print Icon
+printIcon = pygame.transform.scale(pygame.image.load("Icons/print-8x.png").convert_alpha(),(60,60))
+
+#Save Icon
+cameraIcon = pygame.transform.scale(pygame.image.load("Icons/camera-slr-8x.png").convert_alpha(),(60,60))
 
 #bottom level, to cover previous frames
 backgroundCenterSurface = pygame.Surface((400,70))#size
@@ -542,6 +570,8 @@ while(continue_loop):
         
         if ((photo_timer-pygame.time.get_ticks()+1000)/1000) > 0 and photo_count < 5:
             draw_count_down(str(time))
+        else:
+            draw_camera_icon()
 
         if photo_timer < pygame.time.get_ticks() and waitng_on_camera == False and photo_count < 5:
             waitng_on_camera = True
@@ -564,8 +594,7 @@ while(continue_loop):
                 d.start()
             
     if asemblingPhotos:
-        DrawCenterMessage(" Printing! ",600,70,((width/2)-220),((height)-100))
-        
+            draw_printing_icon()
 
     #preview
     if camera_avail:
@@ -575,6 +604,8 @@ while(continue_loop):
     RenderOverlay() # Border GFX etc
     index = index +1
     # sleep(delay_time) #run as fast as possible
+    # draw_camera_icon()
+    # draw_printing_icon()
 
 print "process complete"
 pygame.quit()
