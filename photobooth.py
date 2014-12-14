@@ -218,7 +218,7 @@ def LoadNewImage():
     object_list.append(capture)
 
     last_image_number = image_count
-    current_image = last_image_number
+    #current_image = last_image_number
     image_count = image_count + 1
 
     print "capture added to screen: " + str(pygame.time.get_ticks())
@@ -488,7 +488,8 @@ print "START LOOP"
 sleep(2)
 
 while(continue_loop):
-
+    my_clock = pygame.time.Clock()
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             print "quiting..."
@@ -561,10 +562,11 @@ while(continue_loop):
     DrawMetrics() # fps n stuff
     RenderOverlay() # Border GFX etc
     index = index +1
-    # sleep(delay_time) #run as fast as possible
+    #while start_time > pygame.time.get_ticks()-33: # limit fps to around 30 ( = 33ms / frame
+     #   sleep(1)
+    my_clock.tick(30)  # limit FPS with pygame clocks
     # draw_camera_icon()
     # draw_printing_icon()
 
-print "process complete"
+print "Hope it was a good party, cause we are done!"
 pygame.quit()
-#GPIO.cleanup()
