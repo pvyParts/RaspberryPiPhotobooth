@@ -550,10 +550,6 @@ while(continue_loop):
                 d = threading.Thread(name='printThread', target=print_images_filmstrip)
                 d.daemon = True
                 d.start()
-            else:
-                d = threading.Thread(name='printThread', target=print_images_postcard)
-                d.daemon = True
-                d.start()
             
     if asemblingPhotos:
             draw_printing_icon()
