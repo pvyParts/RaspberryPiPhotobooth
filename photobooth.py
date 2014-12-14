@@ -63,7 +63,21 @@ try:
     camera_avail = True
 except:
     print "Unable to Connect to Camera!"
+    sys.exit("Exit")
+
     
+try:
+    print "checking and creating file structure"
+    if os.path.isdir("Pictures") == False and os.path.isdir("Pictures/Stiched/") == False:
+        os.makedirs("Pictures/Stiched/")
+    
+    if os.path.exists("boothImages.jpg") == False:
+        print "No Templates"
+        sys.exit("No Templates")
+
+except:
+    sys.exit("Exit")
+
 #***************FUNCTIONS******************
 
 def RenderOverlay():
